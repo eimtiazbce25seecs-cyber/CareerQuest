@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react';
 import { ArrowRight, Check, Lightbulb, Code, GraduationCap, HeartPulse, Leaf, Newspaper, Palette, ChartNoAxesCombined, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CHARACTERS } from '@/lib/data/characters';
+import { QUESTIONS } from '@/lib/data/questions';
 import { cn } from '@/lib/utils';
 import type { Career, IconKey } from '@/lib/types';
 import { useProgress } from '@/components/providers/progress-provider';
@@ -37,7 +38,7 @@ export function CareerIcon({ career }: { career: Career }) {
   return <div className={cn('career-icon', `tone-${career.tone}`)} aria-hidden="true"><Icon /></div>;
 }
 
-export function CareerCard({ career, score, label, picked, onPick }: { career: Career; score: number | null; label: string; picked?: boolean; onPick?: (checked: boolean) => void }) {
+export function CareerCard({ career, score, label, picked, onPick, pickDisabled }: { career: Career; score: number | null; label: string; picked?: boolean; onPick?: (checked: boolean) => void; pickDisabled?: boolean }) {
   const { openCareer } = useNav();
   return (
     <article className={cn('career-card', picked && 'picked')}>
@@ -45,7 +46,7 @@ export function CareerCard({ career, score, label, picked, onPick }: { career: C
       <h3>{career.name}</h3>
       <p className="career-desc">{career.category}</p>
       <div className="career-bottom">
-        {onPick ? <label className="compare-check"><input type="checkbox" checked={!!picked} onChange={e => onPick(e.target.checked)} />Compare</label> : <span>{label}</span>}
+        {onPick ? <label className="compare-check"><input type="checkbox" checked={!!picked} disabled={!picked && pickDisabled} onChange={e => onPick(e.target.checked)} />Compare</label> : <span>{label}</span>}
         <Button variant="link" className="text-action" onClick={() => openCareer(career.id)}>Explore <ArrowRight /></Button>
       </div>
     </article>
@@ -82,7 +83,7 @@ export function SenseiPanel({ className = '' }: { className?: string }) {
   const character = progress.character !== null ? CHARACTERS[progress.character] : null;
   const tip = character ? `${character.name} is a starting point, not a box. Your experiences will help shape your path.` : 'Choose a character that feels like you today. You can always grow into someone new.';
   const next = !discovered
-    ? { title: progress.answers.length ? 'Pick up your quest' : 'The Discovery Quest', sub: `${8 - progress.answers.length} questions left · About 3 minutes`, cta: progress.answers.length ? 'Keep going' : 'Let’s discover you', run: () => go('discovery') }
+    ? { title: progress.answers.length ? 'Pick up your quest' : 'The Discovery Quest', sub: `${QUESTIONS.length - progress.answers.length} questions left · About 3 minutes`, cta: progress.answers.length ? 'Keep going' : 'Let’s discover you', run: () => go('discovery') }
     : !hasEvidence
       ? { title: 'Try a day in the life', sub: '2 scenes · A new perspective', cta: 'Try a simulation', run: () => startSim(ranked[0]!.career.id) }
       : { title: 'Plan your next 30 days', sub: '12 small steps · Make it yours', cta: 'Open my roadmap', run: () => go('plan') };

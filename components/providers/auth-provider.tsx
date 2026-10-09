@@ -46,9 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     closeAuth: () => setPanel(null),
     signUp, logIn,
     guest: () => { setUser(auth.continueAsGuest()); setPanel(null); },
-    logOut: () => { auth.logOut(); setUser(null); setPanel(null); },
+    logOut: () => { auth.logOut(); setUser(null); setPanel(null); window.history.replaceState(null, '', window.location.pathname); },
     rename: name => { if (user && !user.guest) { const next = auth.updateName(user.id, name); if (next) setUser(next); } },
-    deleteAccount: () => { if (user && !user.guest) { auth.deleteAccount(user.id); setUser(null); setPanel(null); } },
+    deleteAccount: () => { if (user && !user.guest) { auth.deleteAccount(user.id); setUser(null); setPanel(null); window.history.replaceState(null, '', window.location.pathname); } },
   }), [user, ready, panel, signUp, logIn]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

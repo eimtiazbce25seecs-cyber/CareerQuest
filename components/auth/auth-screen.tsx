@@ -28,6 +28,7 @@ export function AuthScreen() {
       if (problem) return setError(problem);
       return setStep(2);
     }
+    if (mode === 'login' && (!email.trim() || !password)) return setError('Enter your email and password.');
     setBusy(true);
     try {
       if (mode === 'login') await logIn(email, password);

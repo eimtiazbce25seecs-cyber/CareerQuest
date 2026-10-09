@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # CareerQuest
 
 A playful career-discovery game: choose a character, take the discovery quest, try a day in the life of a career, and watch your matches evolve. Frontend only (Next.js 15, React 19, Tailwind 4).
@@ -22,3 +23,6 @@ Push to GitHub, import the repo in Vercel, and deploy. No environment variables 
 
 ## Note on accounts
 Accounts are stored in the browser (salted PBKDF2 hashes in localStorage), so progress stays on one device. That suits a demo; replace `lib/auth.ts` and `lib/storage.ts` with Supabase/Clerk/Auth.js if you need cross-device accounts.
+=======
+# CareerQuest
+>>>>>>> 8cf5b7e87a944fc0fd2fae937f944e2deee4777f

@@ -10,6 +10,7 @@ type Action =
   | { type: 'character'; index: number | null }
   | { type: 'answer'; choice: number }
   | { type: 'restartDiscovery' }
+  | { type: 'undoAnswer' }
   | { type: 'evidence'; evidence: Evidence }
   | { type: 'toggleTask'; careerId: string; taskId: string }
   | { type: 'journalAdd'; entry: JournalEntry }
@@ -24,6 +25,7 @@ function reducer(state: Progress, action: Action): Progress {
     case 'character': return { ...state, character: action.index };
     case 'answer': return state.answers.length >= QUESTIONS.length ? state : { ...state, answers: [...state.answers, action.choice] };
     case 'restartDiscovery': return { ...state, answers: [] };
+    case 'undoAnswer': return { ...state, answers: state.answers.slice(0, -1) };
     case 'evidence': return { ...state, evidence: [...state.evidence, action.evidence] };
     case 'toggleTask': {
       const current = state.tasks[action.careerId] ?? [];

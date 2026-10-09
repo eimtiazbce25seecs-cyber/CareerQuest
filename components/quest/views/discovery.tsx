@@ -1,5 +1,5 @@
 'use client';
-import { ArrowRight, Check, Compass } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Compass } from 'lucide-react';
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { useProgress } from '@/components/providers/progress-provider';
@@ -24,6 +24,7 @@ export function DiscoveryView() {
         <div className="sensei-top"><div className="owl"><Owl /></div><div><h3>Yuki asks…</h3><p>{index > 0 ? 'Let’s look a little deeper.' : 'Go with what feels natural.'}</p></div></div>
         <h2>{question.title}</h2>
         <div className="answer-options">{question.answers.map((a, i) => <Button key={a.text} variant="outline" className="answer" onClick={() => dispatch({ type: 'answer', choice: i })}><span className="answer-number">{String.fromCharCode(65 + i)}</span>{a.text}<ArrowRight className="ml-auto" /></Button>)}</div>
+        {index > 0 && <Button variant="ghost" className="mt-4" onClick={() => dispatch({ type: 'undoAnswer' })}><ArrowLeft />Back to previous question</Button>}
         <p className="text-xs">These are reflection prompts, not a validated personality test. Your progress saves automatically.</p>
       </> : <>
         <div className="flex items-center gap-3 mt-6"><div className="career-icon tone-mint"><Check /></div><h2 className="my-0">A little more you. A little more clarity.</h2></div>

@@ -31,5 +31,5 @@ export function download(filename: string, content: string, type = 'text/markdow
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

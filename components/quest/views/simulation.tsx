@@ -34,11 +34,14 @@ function Run({ careerId, onSwitch }: { careerId: string; onSwitch: () => void })
   const [custom, setCustom] = useState('');
   const [enjoyment, setEnjoyment] = useState(3);
   const [confidence, setConfidence] = useState(3);
+  const [saved, setSaved] = useState(false);
 
   const current = career.scenes[scene as 0 | 1];
   const choose = (d: Decision) => setResult(d);
   const next = () => { if (!result) return; setDecisions([...decisions, result]); setResult(null); setCustom(''); setScene(scene + 1); };
   const save = () => {
+    if (saved) return;
+    setSaved(true);
     dispatch({ type: 'evidence', evidence: { id: crypto.randomUUID(), careerId, enjoyment, confidence, decisions, at: new Date().toISOString() } });
     dispatch({ type: 'explored', careerId });
     go('reflection');
@@ -70,7 +73,7 @@ function Run({ careerId, onSwitch }: { careerId: string; onSwitch: () => void })
           <div><label htmlFor="confidence">Confidence · {confidence}/5</label><input id="confidence" type="range" min={1} max={5} value={confidence} onChange={e => setConfidence(Number(e.target.value))} /><div className="rating-endpoints"><span>Unsure</span><span>Confident</span></div></div>
         </div>
         <div className="sensei-tip"><Lightbulb /><span>Your ratings update this career’s fit. A lower score is a useful discovery, not a failure.</span></div>
-        <div className="flex gap-3 mt-6 flex-wrap"><Button onClick={save}>See how your path evolved <TrendingUp /></Button><Button variant="outline" onClick={onSwitch}>Pick a different career</Button></div>
+        <div className="flex gap-3 mt-6 flex-wrap"><Button disabled={saved} onClick={save}>See how your path evolved <TrendingUp /></Button><Button variant="outline" onClick={onSwitch}>Pick a different career</Button></div>
       </>}
     </section>
     <SenseiPanel />

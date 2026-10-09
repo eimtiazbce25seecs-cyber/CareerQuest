@@ -88,9 +88,9 @@ export function AppShell() {
         <div className="sidebar-bottom">
           <div className="level-card"><strong>Level {level.level} · {level.title}</strong><div className="level-bar"><div style={{ width: `${level.intoLevel / level.perLevel * 100}%` }} /></div><small>{level.perLevel - level.intoLevel} XP to next level</small></div>
           <nav className="side-nav" aria-label="More">
-            <Button variant="ghost" className="nav-item" onClick={() => setModal('palette')}><Palette />Colors & inspiration</Button>
-            <Button variant="ghost" className="nav-item" onClick={() => setModal('privacy')}><SlidersHorizontal />Privacy</Button>
-            <Button variant="ghost" className="nav-item" onClick={() => setModal('help')}><HelpCircle />Help from Yuki</Button>
+            <Button variant="ghost" className="nav-item" onClick={() => { setMobileOpen(false); setModal('palette'); }}><Palette />Colors & inspiration</Button>
+            <Button variant="ghost" className="nav-item" onClick={() => { setMobileOpen(false); setModal('privacy'); }}><SlidersHorizontal />Privacy</Button>
+            <Button variant="ghost" className="nav-item" onClick={() => { setMobileOpen(false); setModal('help'); }}><HelpCircle />Help from Yuki</Button>
           </nav>
           <div className="sidebar-footer"><div className="avatar">{avatar}</div><div><strong>{user.name}</strong><small>{user.guest ? 'Guest mode' : character?.name ?? 'Your story, unfolding'}</small></div></div>
         </div>
