@@ -1,35 +1,35 @@
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import { clearProgress, hasProgress, loadProgress, saveProgress, store } from '@/lib/storage';
 
 /**
- * Browser-only accounts for the demo.
- * Passwords are salted and hashed with PBKDF2 (WebCrypto), and accounts live in this browser's localStorage.
- * That is fine for a prototype, but it is NOT a substitute for server-side auth: swap this module
- * for Supabase Auth, Auth.js, or Clerk when you need accounts that follow people across devices.
- * Everything else in the app only talks to the functions exported here.
+ * Accounts are handled by Supabase Auth: passwords are hashed on Supabase's servers and
+ * sessions are issued by Supabase. "Guest" stays browser-only: it has no Supabase session
+ * and nothing is saved to the database. Everything else in the app only talks to the
+ * functions exported here.
  */
 
 export type User = { id: string; name: string; email: string; guest: boolean; createdAt: string };
-type StoredUser = { id: string; name: string; email: string; salt: string; hash: string; createdAt: string };
 
 export const GUEST: User = { id: 'guest', name: 'Guest explorer', email: '', guest: true, createdAt: '' };
 
 export class AuthError extends Error {}
 
-const ITERATIONS = 150_000;
-const toB64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
-const fromB64 = (b64: string) => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
-async function hashPassword(password: string, saltB64: string): Promise<string> {
-  if (!globalThis.crypto?.subtle) throw new AuthError('Your browser can’t create accounts here. Try a recent browser over HTTPS.');
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const salt = fromB64(saltB64);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt.buffer as ArrayBuffer, iterations: ITERATIONS, hash: 'SHA-256' }, key, 256);
-  return toB64(new Uint8Array(bits));
+function toUser(u: SupabaseUser): User {
+  const name = typeof u.user_metadata?.name === 'string' ? u.user_metadata.name : '';
+  return {
+    id: u.id,
+    name: name || u.email?.split('@')[0] || 'Explorer',
+    email: u.email ?? '',
+    guest: false,
+    createdAt: u.created_at ?? '',
+  };
 }
 
-const users = () => store.read<StoredUser[]>('users', []);
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
-const publicUser = (u: StoredUser): User => ({ id: u.id, name: u.name, email: u.email, guest: false, createdAt: u.createdAt });
+// The guest choice is remembered in this browser only.
+const guestMarked = () => store.read<{ userId: string } | null>('session', null)?.userId === GUEST.id;
 
 export function validateSignUp(name: string, email: string, password: string): string | null {
   if (name.trim().length < 2) return 'Tell us what to call you (at least 2 characters).';
@@ -38,50 +38,64 @@ export function validateSignUp(name: string, email: string, password: string): s
   return null;
 }
 
-export function getSessionUser(): User | null {
-  const session = store.read<{ userId: string } | null>('session', null);
-  if (!session) return null;
-  if (session.userId === GUEST.id) return GUEST;
-  const found = users().find(u => u.id === session.userId);
-  return found ? publicUser(found) : null;
+export async function getSessionUser(): Promise<User | null> {
+  const { data } = await supabase.auth.getSession();
+  if (data.session?.user) return toUser(data.session.user);
+  return guestMarked() ? GUEST : null;
+}
+
+/** Calls back whenever the signed-in user changes (login, logout, token refresh, other tabs). */
+export function onAuthChange(cb: (user: User | null) => void): () => void {
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    cb(session?.user ? toUser(session.user) : guestMarked() ? GUEST : null);
+  });
+  return () => data.subscription.unsubscribe();
 }
 
 export async function signUp(input: { name: string; email: string; password: string; character: number | null }): Promise<User> {
   const problem = validateSignUp(input.name, input.email, input.password);
   if (problem) throw new AuthError(problem);
   const email = normalizeEmail(input.email);
-  if (users().some(u => u.email === email)) throw new AuthError('That email already has an account. Try logging in instead.');
+  const wasGuest = guestMarked();
 
-  const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
-  const stored: StoredUser = {
-    id: crypto.randomUUID(),
-    name: input.name.trim(),
+  const { data, error } = await supabase.auth.signUp({
     email,
-    salt,
-    hash: await hashPassword(input.password, salt),
-    createdAt: new Date().toISOString(),
-  };
-  if (!store.write('users', [...users(), stored])) throw new AuthError('Your browser blocked saving the account. Check that storage isn’t disabled.');
+    password: input.password,
+    options: {
+    emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+    data: { name: input.name.trim(), character: input.character },
+  },
+  });
+
+  const exists = new AuthError('That email already has an account. Try logging in instead.');
+  if (error) {
+    if (error.code === 'user_already_exists' || /already registered/i.test(error.message)) throw exists;
+    throw new AuthError('Could not create your account. Please try again.');
+  }
+  // With email confirmation switched on, an existing email comes back as a user with no identities.
+  if (data.user && data.user.identities?.length === 0) throw exists;
+  // With email confirmation switched on, there is no session until the link is clicked.
+  if (!data.session || !data.user) throw new AuthError('Check your email to confirm your account, then log in.');
 
   // Keep anything the person did as a guest, then seed the chosen character.
-  const base = hasProgress(GUEST.id) && getSessionUser()?.guest ? loadProgress(GUEST.id) : loadProgress(stored.id);
-  saveProgress(stored.id, { ...base, character: base.character ?? input.character });
-  if (getSessionUser()?.guest) clearProgress(GUEST.id);
-
-  store.write('session', { userId: stored.id });
-  return publicUser(stored);
+  const id = data.user.id;
+  const base = wasGuest && hasProgress(GUEST.id) ? loadProgress(GUEST.id) : loadProgress(id);
+  saveProgress(id, { ...base, character: base.character ?? input.character });
+  if (wasGuest) {
+    clearProgress(GUEST.id);
+    store.remove('session');
+  }
+  return toUser(data.user);
 }
 
 export async function logIn(emailInput: string, password: string): Promise<User> {
-  const found = users().find(u => u.email === normalizeEmail(emailInput));
-  const failure = new AuthError('Email or password is incorrect.');
-  if (!found) {
-    await hashPassword(password, toB64(new Uint8Array(16))); // keep timing similar whether or not the email exists
-    throw failure;
+  const { data, error } = await supabase.auth.signInWithPassword({ email: normalizeEmail(emailInput), password });
+  if (error || !data.user) {
+    if (error?.code === 'email_not_confirmed') throw new AuthError('Confirm your email first, then log in.');
+    throw new AuthError('Email or password is incorrect.');
   }
-  if ((await hashPassword(password, found.salt)) !== found.hash) throw failure;
-  store.write('session', { userId: found.id });
-  return publicUser(found);
+  store.remove('session'); // drop any guest marker
+  return toUser(data.user);
 }
 
 export function continueAsGuest(): User {
@@ -89,21 +103,27 @@ export function continueAsGuest(): User {
   return GUEST;
 }
 
-export function logOut() {
+export async function logOut() {
   store.remove('session');
+  await supabase.auth.signOut();
 }
 
-export function updateName(userId: string, name: string): User | null {
-  const list = users();
-  const found = list.find(u => u.id === userId);
-  if (!found || name.trim().length < 2) return null;
-  found.name = name.trim();
-  store.write('users', list);
-  return publicUser(found);
+export async function updateName(name: string): Promise<User | null> {
+  if (name.trim().length < 2) return null;
+  const { data, error } = await supabase.auth.updateUser({ data: { name: name.trim() } });
+  return error || !data.user ? null : toUser(data.user);
 }
 
-export function deleteAccount(userId: string) {
-  store.write('users', users().filter(u => u.id !== userId));
+/** Deleting a Supabase user needs the secret key, so it happens on the server (app/api/account). */
+export async function deleteAccount(userId: string) {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new AuthError('Log in again to delete your account.');
+
+  const res = await fetch('/api/account', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new AuthError('Could not delete your account. Please try again.');
+
   clearProgress(userId);
   store.remove('session');
+  await supabase.auth.signOut({ scope: 'local' });
 }
