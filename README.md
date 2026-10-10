@@ -52,7 +52,7 @@ Pick one career and get a four-week plan (three steps each): follow your curiosi
 
 Ikigai (生き甲斐) is a Japanese word for what makes life feel worth living. CareerQuest uses the familiar four-circle framing as its scoring frame:
 
-            What you LOVE
+                       What you LOVE
            ╱             ╲
    Passion                 Mission
 What you are            What the world
